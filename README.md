@@ -1,11 +1,12 @@
 # MemoryTest
 
+[![CI](https://github.com/kapildhinwa2010-dev/MemoryTest/actions/workflows/ci.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/MemoryTest/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/kapildhinwa2010-dev/MemoryTest/actions/workflows/codeql.yml/badge.svg)](https://github.com/kapildhinwa2010-dev/MemoryTest/actions/workflows/codeql.yml)
+
 Wave-lattice associative memory with interference recall.
 
 **Part of the [Kapildhinwa2010-dev Toolkit](https://github.com/kapildhinwa2010-dev/Kapildhinwa2010-dev).**
 
-![CI](https://github.com/kapildhinwa2010-dev/MemoryTest/actions/workflows/ci.yml/badge.svg)
-![CodeQL](https://github.com/kapildhinwa2010-dev/MemoryTest/actions/workflows/codeql.yml/badge.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
