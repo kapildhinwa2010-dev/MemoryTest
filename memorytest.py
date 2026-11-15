@@ -1,11 +1,20 @@
 # MemoryTest - Correctness tests for associative memory as a library
 # Part of the Kapildhinwa2010-dev Toolkit.
 
-"""MemoryFlow - wave-lattice associative memory with interference recall.
+"""WaveMemory - Hebbian superposition memory with interference recall.
 
 Lineage: reserv.dean-part-2 (helix.py wave arena). Patterns are written as
-superposed waves into a lattice; recall uses normalized correlation
-(interference) so partial or noisy cues retrieve the closest stored pattern.
+superposed outer products into a Hebbian lattice. Two recall modes:
+
+- recall(): exact nearest stored pattern by correlation (needs stored
+  copies; this is the mode that actually worked in our experiments).
+- recall_from_lattice(): Hopfield-style iterative sign updates using ONLY
+  the accumulated lattice, so it works after forget_copies().
+
+HONEST LIMITATIONS (measured, see README): superposition capacity is
+roughly 0.1-0.14 * dim uncorrelated patterns; recall degrades sharply
+under noise once patterns correlate, and the lattice mode is NOT safe
+under heavy noise in our experiments.
 """
 
 from __future__ import annotations
@@ -31,13 +40,13 @@ def noise_pattern(shape, flip_prob: float, rng: np.random.Generator) -> np.ndarr
 
 
 class WaveMemory:
-    """Superposition memory with interference-based recall."""
+    """Hebbian superposition memory with interference-based recall."""
 
     def __init__(self, dim: int) -> None:
         if dim < 1:
             raise ValueError("dim must be >= 1")
         self.dim = int(dim)
-        self.lattice = np.zeros(self.dim, dtype=np.float64)
+        self.lattice = np.zeros((self.dim, self.dim), dtype=np.float64)
         self.patterns: list = []
 
     def write(self, pattern: np.ndarray) -> None:
@@ -46,7 +55,7 @@ class WaveMemory:
             raise ValueError("pattern size must equal dim")
         if not np.all(np.isin(pattern, (-1.0, 1.0))):
             raise ValueError("patterns must contain only -1 and +1")
-        self.lattice += pattern
+        self.lattice += np.outer(pattern, pattern)
         self.patterns.append(pattern.copy())
 
     def write_many(self, patterns) -> None:
@@ -54,7 +63,10 @@ class WaveMemory:
             self.write(pattern)
 
     def recall(self, cue: np.ndarray) -> np.ndarray:
-        """Return the stored pattern most correlated with ``cue``."""
+        """Return the stored pattern most correlated with ``cue``.
+
+        Uses the stored copies, so it is exact but needs them kept.
+        """
         cue = np.asarray(cue, dtype=np.float64).ravel()
         if cue.size != self.dim:
             raise ValueError("cue size must equal dim")
@@ -63,15 +75,28 @@ class WaveMemory:
         scores = [float(cue @ p) for p in self.patterns]
         return self.patterns[int(np.argmax(scores))].copy()
 
-    def recall_from_lattice(self, cue: np.ndarray) -> np.ndarray:
-        """Superposed-lattice recall (works even without stored copies)."""
+    def recall_from_lattice(self, cue: np.ndarray, steps: int = 3) -> np.ndarray:
+        """Hopfield-style recall using ONLY the Hebbian lattice.
+
+        Iteratively applies sign(lattice @ state) starting from the cue.
+        Works after forget_copies(); degrades when stored patterns
+        correlate or the cue is heavily corrupted.
+        """
         cue = np.asarray(cue, dtype=np.float64).ravel()
         if cue.size != self.dim:
             raise ValueError("cue size must equal dim")
-        if not self.patterns:
+        if not self.patterns and not self.lattice.any():
             raise ValueError("memory is empty")
-        scores = np.array([float(cue @ p) for p in self.patterns])
-        return self.patterns[int(np.argmax(scores))].copy()
+        if steps < 1:
+            raise ValueError("steps must be >= 1")
+        state = np.where(cue >= 0, 1.0, -1.0)
+        for _ in range(int(steps)):
+            state = np.where(self.lattice @ state >= 0, 1.0, -1.0)
+        return state
+
+    def forget_copies(self) -> None:
+        """Drop stored copies; only the Hebbian lattice remains."""
+        self.patterns = []
 
     def cleanup(self, noisy: np.ndarray, max_flips: int = 8) -> np.ndarray:
         """Recall and verify; raise if the result is too far from the cue."""

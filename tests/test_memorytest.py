@@ -90,3 +90,32 @@ def test_cleanup_recovers_small_noise():
 def test_dim_rejects_zero():
     with pytest.raises(ValueError):
         WaveMemory(dim=0)
+
+
+def test_recall_from_lattice_without_copies():
+    rng = np.random.default_rng(3)
+    p1 = rng.choice([-1, 1], size=100)
+    p2 = np.concatenate([p1[:50], -p1[50:]])
+    assert p1 @ p2 == 0
+    mem = WaveMemory(dim=100)
+    mem.write_many([p1, p2])
+    noisy = p1.copy()
+    flips = rng.choice(100, size=5, replace=False)
+    noisy[flips] *= -1
+    mem.forget_copies()
+    assert len(mem) == 0
+    assert np.array_equal(mem.recall_from_lattice(noisy), p1)
+
+
+def test_recall_from_lattice_rejects_wrong_size():
+    mem = WaveMemory(dim=8)
+    mem.write(np.ones(8))
+    with pytest.raises(ValueError):
+        mem.recall_from_lattice(np.ones(4))
+
+
+def test_recall_from_lattice_rejects_bad_steps():
+    mem = WaveMemory(dim=8)
+    mem.write(np.ones(8))
+    with pytest.raises(ValueError):
+        mem.recall_from_lattice(np.ones(8), steps=0)
